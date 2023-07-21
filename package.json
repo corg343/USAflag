@@ -1,0 +1,11 @@
+{
+  "name": "usaflag",
+  "version": "1.0.0",
+  "description": "RAHHHH USA 🦅🦅🦅🦅",
+  "main": "src/client.js",
+  "author": "USA Flag Group",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "ws": "^8.13.0"
+  }
+}
