@@ -2,15 +2,16 @@
 // @name         r/placeDE Zinnsoldat
 // @namespace    http://tampermonkey.net/
 // @version      0.3
-// @description  Einer von uns!
+// @description  One of us!
 // @author       placeDE Devs
 // @match        https://*.reddit.com/r/place/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=reddit.com
 // @updateURL    https://github.com/PlaceDE-Official/zinnsoldat/raw/main/output/placebot.user.js
 // @downloadURL  https://github.com/PlaceDE-Official/zinnsoldat/raw/main/output/placebot.user.js
 // ==/UserScript==
+
 (async () => {
-    // Check for correct page
+    // Check for the correct page
     if (!window.location.href.startsWith('https://www.reddit.com/r/place/') && !window.location.href.startsWith('https://new.reddit.com/r/place/')) {
         return;
     }
@@ -24,6 +25,7 @@
     marker.setAttribute('name', 'zinnsoldat');
     document.head.appendChild(marker);
 
+    // Styles for the User Interface
     const zs_style = document.createElement('style');
     zs_style.innerHTML = `
         .zs-hidden {
@@ -69,33 +71,42 @@
     `;
     document.head.appendChild(zs_style);
 
+    // Variables for controlling the script
     let zs_running = true;
     let zs_initialized;
     let placeTimeout;
 
     const zs_version = "0.3";
+
+    // Create the Start/Stop button for the User Interface
     const zs_startButton = document.createElement('button');
     zs_startButton.innerText = `Zinnsoldat v${zs_version}`;
     zs_startButton.classList.add('zs-pixeled', 'zs-button', 'zs-stopbutton');
-    document.body.appendChild(zs_startButton)
+    document.body.appendChild(zs_startButton);
 
+    // Create the timeout bar for the User Interface
     const zs_timeout = document.createElement('div');
     zs_timeout.classList.add('zs-pixeled', 'zs-timeout');
     zs_timeout.style.setProperty('--zs_timeout', '100%');
     document.body.appendChild(zs_timeout);
 
-    // Load Toastify
+    // Load Toastify library for showing notifications
     await new Promise((resolve, reject) => {
+        // Load the Toastify CSS
         var toastifyStyle = document.createElement('link');
         toastifyStyle.type = "text/css";
         toastifyStyle.rel = "stylesheet";
         toastifyStyle.media = "screen";
         toastifyStyle.href = 'https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css';
         document.head.appendChild(toastifyStyle);
+        
+        // Load the Toastify JS
         var toastifyScript = document.createElement('script');
         toastifyScript.setAttribute('src', 'https://cdn.jsdelivr.net/npm/toastify-js');
         toastifyScript.setAttribute('async', false);
         document.body.appendChild(toastifyScript);
+        
+        // Resolve the promise when the script is loaded
         toastifyScript.addEventListener('load', (ev) => {
             resolve({ status: true });
         });
@@ -103,6 +114,8 @@
             reject({ status: false, message: `Failed to load the toastify` });
         });
     });
+
+    // Functions for displaying different types of notifications
     const zs_info = (msg) => {
         Toastify({
             text: msg,
@@ -165,7 +178,7 @@
     }
     const zs_updateNotification = () => {
         Toastify({
-            text: 'Neue Version auf https://place.army/ verfügbar!',
+            text: 'New version available at https://place.army/!',
             destination: 'https://place.army/',
             duration: -1,
             gravity: 'bottom',
@@ -180,13 +193,13 @@
         }).showToast();
     }
 
-    zs_info('Einer von uns!');
+    zs_info('One of us!');
 
-    // Override setTimeout to allow getting the time left
-    const _setTimeout = setTimeout; 
-    const _clearTimeout = clearTimeout; 
+    // Override setTimeout to allow getting the time left for the next job
+    const _setTimeout = setTimeout;
+    const _clearTimeout = clearTimeout;
     const zs_allTimeouts = {};
-    
+
     setTimeout = (callback, delay) => {
         let id = _setTimeout(callback, delay);
         zs_allTimeouts[id] = Date.now() + delay;
@@ -197,47 +210,50 @@
         _clearTimeout(id);
         zs_allTimeouts[id] = undefined;
     }
-    
+
     const getTimeout = (id) => {
         if (zs_allTimeouts[id]) {
             return Math.max(
                 zs_allTimeouts[id] - Date.now(),
                 0 // Make sure we get no negative values for timeouts that are already done
-            )
+            );
         }
 
         return NaN;
     }
 
+    // Update the progress bar based on the time left for the next job
     setInterval(() => {
-        const theTimeout = getTimeout(placeTimeout)
+        const theTimeout = getTimeout(placeTimeout);
         if (Number.isNaN(theTimeout)) {
-            // Hide it
+            // Hide the progress bar
             zs_timeout.style.opacity = 0;
         }
 
-        // Show it
+        // Show the progress bar
         zs_timeout.style.opacity = 1;
 
-        // Update the percentage
-        const maxTimeout = 300000; // 5min
-        const percentage = 100 - Math.min(Math.max(Math.round((theTimeout/maxTimeout) * 100), 0), 100)
-        zs_timeout.style.setProperty("--zs_timeout", `${percentage}%`)
-    }, 1)
+        // Update the percentage for the progress bar
+        const maxTimeout = 300000; // 5 minutes
+        const percentage = 100 - Math.min(Math.max(Math.round((theTimeout / maxTimeout) * 100), 0), 100);
+        zs_timeout.style.setProperty("--zs_timeout", `${percentage}%`);
+    }, 1);
 
-    // Retrieve access token
+    // Retrieve access token from Reddit to interact with the canvas
     const zs_getAccessToken = async () => {
         const usingOldReddit = window.location.href.includes('new.reddit.com');
         const url = usingOldReddit ? 'https://new.reddit.com/r/place/' : 'https://www.reddit.com/r/place/';
         const response = await fetch(url);
         const responseText = await response.text();
-    
-        return responseText.match(/"accessToken":"(\\"|[^"]*)"/)[1];
-    }
-    zs_info('Erbitte Reddit um Zugriff...');
-    let zs_accessToken = await zs_getAccessToken();
-    zs_success('Zugriff gewährt!');
 
+        return responseText.match(/"accessToken":"(\\"|[^"]*)"/)[1];
+    };
+
+    zs_info('Requesting access to Reddit...');
+    let zs_accessToken = await zs_getAccessToken();
+    zs_success('Access granted!');
+
+    // Functions to map canvas coordinates to canvas IDs, X, and Y positions
     const zs_getCanvasId = (x, y) => {
         if (y < 0 && x < 500) {
             return 1;
@@ -250,18 +266,19 @@
         }
         console.error('Unknown canvas!');
         return 0;
-    }
+    };
 
     const zs_getCanvasX = (x, y) => {
         return (x + 500) % 1000;
-    }
+    };
 
     const zs_getCanvasY = (x, y) => {
         return zs_getCanvasId(x, y) < 3 ? y + 1000 : y;
-    }
+    };
 
+    // Function to place a pixel on the canvas using GraphQL requests to Reddit's server
     const zs_placePixel = async (x, y, color) => {
-        console.log('Trying to place pixel at %s, %s in %s', x, y, color);
+        console.log('Trying to place a pixel at %s, %s in color %s', x, y, color);
         const response = await fetch('https://gql-realtime-2.reddit.com/query', {
             method: 'POST',
             body: JSON.stringify({
@@ -312,30 +329,30 @@
                 'Content-Type': 'application/json'
             }
         });
-        const data = await response.json()
+        const data = await response.json();
         if (data.errors !== undefined) {
             if (data.errors[0].message === 'Ratelimited') {
-                console.log('Could not place pixel at %s, %s in %s - Ratelimit', x, y, color);
-                zs_warn('Du hast noch Abklingzeit!');
+                console.log('Could not place a pixel at %s, %s in color %s - Ratelimit', x, y, color);
+                zs_warn('You have a cooldown time!');
                 return data.errors[0].extensions?.nextAvailablePixelTs;
             }
-            console.log('Could not place pixel at %s, %s in %s - Response error', x, y, color);
+            console.log('Could not place a pixel at %s, %s in color %s - Response error', x, y, color);
             console.error(data.errors);
-            zs_error('Fehler beim Platzieren des Pixels');
+            zs_error('Error placing the pixel');
             return null;
         }
-        console.log('Did place pixel at %s, %s in %s', x, y, color);
-        zs_success(`Pixel (${x}, ${y}) platziert!`);
+        console.log('Placed a pixel at %s, %s in color %s', x, y, color);
+        zs_success(`Pixel (${x}, ${y}) placed!`);
         return data?.data?.act?.data?.[0]?.data?.nextAvailablePixelTimestamp;
-    }
-
+    };
 
     let c2;
     let tokens = ['Wololo']; // We only have one token
 
+    // Function to request jobs from the "Carpetbomber" server
     const zs_requestJob = () => {
         if (c2.readyState !== c2.OPEN) {
-            zs_error('Verbindung zum "Carpetbomber" abgebrochen. Verbinde...');
+            zs_error('Connection to "Carpetbomber" lost. Reconnecting...');
             zs_initCarpetbomberConnection();
             return;
         }
@@ -343,11 +360,12 @@
             return;
         }
         c2.send(JSON.stringify({ type: "RequestJobs", tokens: tokens }));
-    }
+    };
 
+    // Function to process the response with pixel placement jobs from the "Carpetbomber" server
     const zs_processJobResponse = (jobs) => {
-        if (!jobs || jobs === {}) {
-            zs_warn('Kein verfügbarer Auftrag. Versuche in 60s erneut');
+        if (!jobs || Object.keys(jobs).length === 0) {
+            zs_warn('No available jobs. Trying again in 60s');
             clearTimeout(placeTimeout);
             placeTimeout = setTimeout(() => {
                 zs_requestJob();
@@ -356,66 +374,69 @@
         }
         let [token, [job, code]] = Object.entries(jobs)[0];
         if (!job) {
-            // Check if ratelimited and schedule retry
+            // Check if ratelimited and schedule a retry
             const ratelimit = code?.Ratelimited?.until;
             if (ratelimit) {
                 clearTimeout(placeTimeout);
-            placeTimeout = setTimeout(() => {
+                placeTimeout = setTimeout(() => {
                     zs_requestJob();
                 }, Math.max(5000, Date.parse(ratelimit) + 2000 - Date.now()));
                 return;
             }
             // Other error. No jobs left?
-            zs_warn('Kein verfügbarer Auftrag. Versuche in 20s erneut');
+            zs_warn('No available jobs. Trying again in 20s');
             clearTimeout(placeTimeout);
             placeTimeout = setTimeout(() => {
                 zs_requestJob();
             }, 20000);
             return;
         }
-        // Execute job
+        // Execute the job
         zs_placePixel(job.x, job.y, job.color - 1).then((nextTry) => {
             clearTimeout(placeTimeout);
             placeTimeout = setTimeout(() => {
                 zs_requestJob();
-            }, Math.max(5000, (nextTry || 5*60*1000) + 2000 - Date.now()));
+            }, Math.max(5000, (nextTry || 5 * 60 * 1000) + 2000 - Date.now()));
         });
-    }
+    };
 
+    // Function to initialize the WebSocket connection to the "Carpetbomber" server
     const zs_initCarpetbomberConnection = () => {
         c2 = new WebSocket("wss://carpetbomber.place.army");
 
         c2.onopen = () => {
             zs_initialized = true;
-            zs_info('Verbinde mit "Carpetbomber"...');
+            zs_info('Connecting to "Carpetbomber"...');
             c2.send(JSON.stringify({ type: "Handshake", version: zs_version }));
             zs_requestJob();
-            setInterval(() => c2.send(JSON.stringify({ type: "Wakeup"})), 40*1000);
-        }
-        
+            setInterval(() => c2.send(JSON.stringify({ type: "Wakeup" })), 40 * 1000);
+        };
+
         c2.onerror = (error) => {
-            zs_error('Verbindung zum "Carpetbomber" fehlgeschlagen! Versuche in 5s erneut');
+            zs_error('Connection to "Carpetbomber" failed! Trying again in 5s');
             console.error(error);
             setTimeout(zs_initCarpetbomberConnection, 5000);
-        }
+        };
 
         c2.onmessage = (event) => {
-            data = JSON.parse(event.data)
+            data = JSON.parse(event.data);
             // console.log('received: %s', JSON.stringify(data));
 
             if (data.type === 'UpdateVersion') {
-                zs_success('Verbindung aufgebaut!');
+                zs_success('Connection established!');
                 if (data.version > zs_version) {
                     zs_updateNotification();
                 }
             } else if (data.type == "Jobs") {
                 zs_processJobResponse(data.jobs);
             }
-        }
-    }
-    
+        };
+    };
+
+    // Start the WebSocket connection
     zs_initCarpetbomberConnection();
 
+    // Function to start the bot and request jobs
     const zs_startBot = () => {
         zs_running = true;
         zs_startButton.classList.remove('zs-startbutton');
@@ -424,21 +445,23 @@
         if (zs_initialized) {
             zs_requestJob();
         }
-    }
+    };
 
+    // Function to stop the bot
     const zs_stopBot = () => {
         zs_running = false;
         clearTimeout(placeTimeout);
         zs_startButton.classList.remove('zs-stopbutton');
         zs_startButton.classList.add('zs-startbutton');
         zs_timeout.classList.add('zs-hidden');
-    }
+    };
 
+    // Add click event listener to the Start/Stop button
     zs_startButton.onclick = () => {
         if (zs_running) {
             zs_stopBot();
         } else {
             zs_startBot();
         }
-    }
+    };
 })();
